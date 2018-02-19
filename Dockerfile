@@ -1,4 +1,4 @@
-FROM sonatype/nexus3:3.6.0
+FROM sonatype/nexus3:3.8.0
 
 ENV SWIFT_BLOBSTORE_VERSION 1.0.0-SNAPSHOT
 ENV NEXUS_HOME /opt/sonatype/nexus
