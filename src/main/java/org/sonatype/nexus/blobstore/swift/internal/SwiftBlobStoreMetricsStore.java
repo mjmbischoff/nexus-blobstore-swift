@@ -42,7 +42,7 @@ import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.St
  */
 @Named
 public class SwiftBlobStoreMetricsStore extends StateGuardLifecycleSupport {
-  private static final String METRICS_SUFFIX = "-metrics";
+  private static final String METRICS_SUFFIX = "metrics";
   private static final String METRICS_EXTENSION = ".properties";
   private static final String TOTAL_SIZE_PROP_NAME = "totalSize";
   private static final String BLOB_COUNT_PROP_NAME = "blobCount";
