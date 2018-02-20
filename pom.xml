@@ -57,9 +57,29 @@
     <dependency>
       <groupId>org.javaswift</groupId>
       <artifactId>joss</artifactId>
-      <version>0.10.0</version>
+      <version>0.10.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.codehaus.jackson</groupId>
+          <artifactId>jackson-mapper-asl</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.codehaus.jackson</groupId>
+          <artifactId>jackson-core-asl</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-mapper-asl</artifactId>
+      <version>1.9.7</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-core-asl</artifactId>
+      <version>1.9.7</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -72,8 +92,9 @@
             <Import-Package>
               *;resolution:=optional
             </Import-Package>
+            <!-- Joss depends on old jackson-->
             <Embed-Dependency>
-              joss
+              joss, jackson-mapper-asl, jackson-core-asl
             </Embed-Dependency>
             <Embed-Transitive>true</Embed-Transitive>
           </instructions>
