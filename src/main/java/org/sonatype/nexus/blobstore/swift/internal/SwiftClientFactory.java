@@ -14,12 +14,15 @@ package org.sonatype.nexus.blobstore.swift.internal;
 
 import com.google.common.base.Strings;
 import org.javaswift.joss.client.factory.AccountFactory;
+import org.javaswift.joss.client.factory.AuthenticationMethod;
 import org.javaswift.joss.model.Account;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
+import org.sonatype.nexus.common.collect.NestedAttributesMap;
 
 import javax.inject.Named;
 
 import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.AUTHURL_KEY;
+import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.AUTH_METHOD;
 import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.CONFIG_KEY;
 import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.PASSWORD_KEY;
 import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.TENANT_ID_KEY;
@@ -33,22 +36,41 @@ import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.USERNAM
 public class SwiftClientFactory {
 
   public Account create(final BlobStoreConfiguration blobStoreConfiguration) {
-    String username = blobStoreConfiguration.attributes(CONFIG_KEY).get(USERNAME_KEY, String.class);
-    String password = blobStoreConfiguration.attributes(CONFIG_KEY).get(PASSWORD_KEY, String.class);
-    String authUrl = blobStoreConfiguration.attributes(CONFIG_KEY).get(AUTHURL_KEY, String.class);
+    NestedAttributesMap config = blobStoreConfiguration.attributes(CONFIG_KEY);
+    String username = config.get(USERNAME_KEY, String.class);
+    String password = config.get(PASSWORD_KEY, String.class);
+    String authUrl = config.get(AUTHURL_KEY, String.class);
     AccountFactory factory = new AccountFactory()
             .setUsername(username)
             .setPassword(password)
             .setAuthUrl(authUrl);
 
-    String tenantId = blobStoreConfiguration.attributes(CONFIG_KEY).get(TENANT_ID_KEY, String.class);
+    AuthenticationMethod authenticationMethod = toAuthMethod(config.get(AUTH_METHOD, String.class));
+    factory.setAuthenticationMethod(authenticationMethod);
+
+    String tenantId = config.get(TENANT_ID_KEY, String.class);
     if(!Strings.isNullOrEmpty(tenantId)) {
       factory.setTenantId(tenantId);
     } else {
-      String tenantName = blobStoreConfiguration.attributes(CONFIG_KEY).get(TENANT_NAME_KEY, String.class);
-      factory.setTenantName(tenantName);
+      String tenantName = config.get(TENANT_NAME_KEY, String.class);
+      if (!Strings.isNullOrEmpty(tenantName)){
+        factory.setTenantName(tenantName);
+      }
     }
 
     return factory.createAccount();
+  }
+
+  private AuthenticationMethod toAuthMethod(String value) {
+    if(value==null) {
+      return AuthenticationMethod.BASIC;
+    }
+    switch (value) {
+      default: return AuthenticationMethod.BASIC;
+      case "BASIC": return AuthenticationMethod.BASIC;
+      case "KEYSTONE": return AuthenticationMethod.KEYSTONE;
+      case "KEYSTONE_V3": return AuthenticationMethod.KEYSTONE_V3;
+      case "TEMPAUTH": return AuthenticationMethod.TEMPAUTH;
+    }
   }
 }

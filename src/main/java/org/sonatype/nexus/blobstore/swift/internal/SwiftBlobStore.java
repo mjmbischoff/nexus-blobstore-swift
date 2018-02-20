@@ -72,6 +72,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   public static final String USERNAME_KEY = "username";
   public static final String PASSWORD_KEY = "password";
   public static final String AUTHURL_KEY = "authUrl";
+  public static final String AUTH_METHOD = "authMethod";
   public static final String TENANT_ID_KEY = "tenantId";
   public static final String TENANT_NAME_KEY = "tenantName";
 

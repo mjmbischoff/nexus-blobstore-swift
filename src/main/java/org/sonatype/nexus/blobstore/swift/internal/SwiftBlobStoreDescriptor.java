@@ -17,9 +17,11 @@ import java.util.List;
 
 import javax.inject.Named;
 
+import org.javaswift.joss.client.factory.AuthenticationMethod;
 import org.sonatype.goodies.i18n.I18N;
 import org.sonatype.goodies.i18n.MessageBundle;
 import org.sonatype.nexus.blobstore.BlobStoreDescriptor;
+import org.sonatype.nexus.formfields.ComboboxFormField;
 import org.sonatype.nexus.formfields.FormField;
 import org.sonatype.nexus.formfields.NumberTextFormField;
 import org.sonatype.nexus.formfields.PasswordFormField;
@@ -73,6 +75,12 @@ public class SwiftBlobStoreDescriptor implements BlobStoreDescriptor {
 
     @DefaultMessage("Openstack tenant name")
     String tenantNameHelp();
+
+    @DefaultMessage("Authentication Method")
+    String authMethodLabel();
+
+    @DefaultMessage("BASIC, KEYSTONE, KEYSTONE_V3, TEMPAUTH")
+    String authMethodHelp();
   }
 
   private static final Messages messages = I18N.create(Messages.class);
@@ -81,6 +89,7 @@ public class SwiftBlobStoreDescriptor implements BlobStoreDescriptor {
   private final FormField username;
   private final FormField password;
   private final FormField authUrl;
+  private final FormField authMethod;
   private final FormField tenantId;
   private final FormField tenantName;
 
@@ -109,6 +118,12 @@ public class SwiftBlobStoreDescriptor implements BlobStoreDescriptor {
         messages.authUrlHelp(),
         FormField.MANDATORY
     );
+    this.authMethod = new StringTextFormField(
+          SwiftBlobStore.AUTH_METHOD,
+          messages.authMethodLabel(),
+          messages.authMethodHelp(),
+          true
+    ).withInitialValue("BASIC");
     this.tenantId = new StringTextFormField(
         SwiftBlobStore.TENANT_ID_KEY,
         messages.tenantIdLabel(),
@@ -130,6 +145,6 @@ public class SwiftBlobStoreDescriptor implements BlobStoreDescriptor {
 
   @Override
   public List<FormField> getFormFields() {
-      return Arrays.asList(container, username, password, authUrl, tenantId, tenantName);
+      return Arrays.asList(container, username, password, authUrl, authMethod, tenantId, tenantName);
   }
 }
