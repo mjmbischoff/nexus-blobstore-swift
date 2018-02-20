@@ -39,6 +39,7 @@ import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -83,6 +84,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   public static final String TEMPORARY_BLOB_ID_PREFIX = "tmp$";
 
   private static final Directory CONTENT_DIRECTORY = new Directory(CONTENT_PREFIX, '/');
+  private static final int BUFFER_SIZE = 1024 * 250;
 
   private final SwiftClientFactory swiftClientFactory;
   private final BlobIdLocationResolver blobIdLocationResolver;
@@ -154,14 +156,14 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
     checkNotNull(blobData);
 
     return create(headers, destination -> {
-        try (InputStream data = blobData) {
-          MetricsInputStream input = new MetricsInputStream(data);
-          swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(input);
-          return input.getMetrics();
-        } catch (Exception e) {
-          throw new BlobStoreException("error uploading blob", e, null);
-        }
-      });
+      MetricsInputStream input;
+      try (InputStream buffered = new BufferedInputStream(input = new MetricsInputStream(blobData), BUFFER_SIZE)) {
+        swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(buffered);
+        return input.getMetrics();
+      } catch (Exception e) {
+        throw new BlobStoreException("error uploading blob", e, null);
+      }
+    });
   }
 
   @Override
@@ -212,7 +214,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
     Blob sourceBlob = checkNotNull(get(blobId));
     String sourcePath = contentPath(sourceBlob.getId());
     return create(headers, destination -> {
-      try(InputStream source = swift.getContainer(getConfiguredContainer()).getObject(sourcePath).downloadObjectAsInputStream()) {
+      try(InputStream source = new BufferedInputStream(swift.getContainer(getConfiguredContainer()).getObject(sourcePath).downloadObjectAsInputStream(), BUFFER_SIZE)) {
         swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(source);
         BlobMetrics metrics = sourceBlob.getMetrics();
         return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());

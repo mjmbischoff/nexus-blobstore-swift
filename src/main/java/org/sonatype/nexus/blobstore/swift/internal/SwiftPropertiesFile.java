@@ -63,9 +63,7 @@ public class SwiftPropertiesFile extends Properties {
 
       StoredObject object = swift.getContainer(container).getObject(key);
       object.setContentLength(buffer.length);
-      try (ByteArrayInputStream inputStream = new ByteArrayInputStream(buffer)) {
-        object.uploadObject(inputStream);
-      }
+      object.uploadObject(buffer);
     }
   }
 
