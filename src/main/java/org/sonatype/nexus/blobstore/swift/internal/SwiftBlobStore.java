@@ -212,10 +212,11 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
     Blob sourceBlob = checkNotNull(get(blobId));
     String sourcePath = contentPath(sourceBlob.getId());
     return create(headers, destination -> {
-      InputStream source = swift.getContainer(getConfiguredContainer()).getObject(sourcePath).downloadObjectAsInputStream();
-      swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(source);
-      BlobMetrics metrics = sourceBlob.getMetrics();
-      return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
+      try(InputStream source = swift.getContainer(getConfiguredContainer()).getObject(sourcePath).downloadObjectAsInputStream()) {
+        swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(source);
+        BlobMetrics metrics = sourceBlob.getMetrics();
+        return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
+      }
     });
   }
 

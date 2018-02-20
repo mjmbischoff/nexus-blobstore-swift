@@ -57,13 +57,16 @@ public class SwiftPropertiesFile extends Properties {
   public void store() throws IOException {
     log.debug("Storing: {}/{}", container, key);
 
-    ByteArrayOutputStream bufferStream = new ByteArrayOutputStream();
-    store(bufferStream, null);
-    byte[] buffer = bufferStream.toByteArray();
+    try(ByteArrayOutputStream bufferStream = new ByteArrayOutputStream()) {
+      store(bufferStream, null);
+      byte[] buffer = bufferStream.toByteArray();
 
-    StoredObject object = swift.getContainer(container).getObject(key);
-    object.setContentLength(buffer.length);
-    object.uploadObject(new ByteArrayInputStream(buffer));
+      StoredObject object = swift.getContainer(container).getObject(key);
+      object.setContentLength(buffer.length);
+      try (ByteArrayInputStream inputStream = new ByteArrayInputStream(buffer)) {
+        object.uploadObject(inputStream);
+      }
+    }
   }
 
   public boolean exists() throws IOException {
