@@ -34,7 +34,7 @@ public class SwiftPropertiesFileTest
     given:
       def container = mockContainer('myContainer')
       swift.getContainer('myContainer') >> container
-      SwiftPropertiesFile propertiesFile = new SwiftPropertiesFile(swift, 'myContainer', 'mykey')
+      SwiftPropertiesFile propertiesFile = new SwiftPropertiesFile(swift, 'myContainer', null, 'mykey')
       StoredObject swiftObject = Mock()
 
     when:
@@ -50,7 +50,7 @@ public class SwiftPropertiesFileTest
     given:
       def container = mockContainer('myContainer')
       swift.getContainer('myContainer') >> container
-      SwiftPropertiesFile propertiesFile = new SwiftPropertiesFile(swift, 'myContainer', 'mykey')
+      SwiftPropertiesFile propertiesFile = new SwiftPropertiesFile(swift, 'myContainer', null, 'mykey')
       StoredObject swiftObject = Mock()
 
     when:

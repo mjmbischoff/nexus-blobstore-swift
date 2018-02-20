@@ -45,7 +45,7 @@ public class SwiftBlobAttributes implements BlobAttributes {
   public SwiftBlobAttributes(final Account swift, final String bucket, final String key) {
     checkNotNull(key);
     checkNotNull(swift);
-    this.propertiesFile = new SwiftPropertiesFile(swift, bucket, key);
+    this.propertiesFile = new SwiftPropertiesFile(swift, bucket, null, key);
   }
 
   public SwiftBlobAttributes(final Account swift, final String bucket, final String key, final Map<String, String> headers, final BlobMetrics metrics) {

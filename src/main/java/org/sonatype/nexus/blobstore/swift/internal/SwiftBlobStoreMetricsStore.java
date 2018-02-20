@@ -15,12 +15,14 @@ package org.sonatype.nexus.blobstore.swift.internal;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 
 import org.javaswift.joss.model.Account;
+import org.javaswift.joss.model.Directory;
 import org.sonatype.nexus.blobstore.AccumulatingBlobStoreMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
 import org.sonatype.nexus.blobstore.PeriodicJobService;
@@ -51,6 +53,7 @@ public class SwiftBlobStoreMetricsStore extends StateGuardLifecycleSupport {
   private final NodeAccess nodeAccess;
   private AtomicLong totalSize;
   private AtomicBoolean dirty;
+  private AtomicReference<Directory> directory;
   private PeriodicJob metricsWritingJob;
   private String container;
   private SwiftPropertiesFile propertiesFile;
@@ -68,8 +71,9 @@ public class SwiftBlobStoreMetricsStore extends StateGuardLifecycleSupport {
     blobCount = new AtomicLong();
     totalSize = new AtomicLong();
     dirty = new AtomicBoolean();
+    directory = new AtomicReference(new Directory(nodeAccess.getId(), '/'));
 
-    propertiesFile = new SwiftPropertiesFile(swift, container, nodeAccess.getId() + METRICS_SUFFIX + METRICS_EXTENSION);
+    propertiesFile = new SwiftPropertiesFile(swift, container, directory.get(), METRICS_SUFFIX + METRICS_EXTENSION);
     if (propertiesFile.exists()) {
       log.info("Loading blob store metrics file {}", propertiesFile);
       propertiesFile.load();
@@ -172,9 +176,9 @@ public class SwiftBlobStoreMetricsStore extends StateGuardLifecycleSupport {
     if (swift == null) {
       return Stream.empty();
     } else {
-      Stream<SwiftPropertiesFile> stream = swift.getContainer(container + nodeAccess.getId()).list().stream()
+      Stream<SwiftPropertiesFile> stream = swift.getContainer(container).listDirectory(directory.get()).stream()
           .filter(summary -> summary.getName().endsWith(METRICS_EXTENSION))
-          .map(summary -> new SwiftPropertiesFile(swift, container, summary.getName()));
+          .map(summary -> new SwiftPropertiesFile(swift, container, directory.get(), summary.getName()));
       return stream;
     }
   }

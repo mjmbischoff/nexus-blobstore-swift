@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.util.Properties;
 
 import org.javaswift.joss.model.Account;
+import org.javaswift.joss.model.Directory;
 import org.javaswift.joss.model.StoredObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,10 +35,14 @@ public class SwiftPropertiesFile extends Properties {
   private final String container;
   private final String key;
 
-  public SwiftPropertiesFile(final Account swift, final String container, final String name) {
+  public SwiftPropertiesFile(final Account swift, final String container, Directory directory, final String name) {
     this.swift = checkNotNull(swift);
     this.container = checkNotNull(container);
-    this.key = checkNotNull(name);
+    if(directory != null) {
+      this.key = checkNotNull(directory.getBareName() + "/" + name);
+    } else {
+      this.key = checkNotNull(name);
+    }
   }
 
   public void load() throws IOException {

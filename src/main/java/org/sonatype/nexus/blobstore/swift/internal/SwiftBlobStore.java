@@ -105,7 +105,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   @Override
   protected void doStart() throws Exception {
     // ensure blobstore is supported
-    SwiftPropertiesFile metadata = new SwiftPropertiesFile(swift, getConfiguredContainer(), METADATA_FILENAME);
+    SwiftPropertiesFile metadata = new SwiftPropertiesFile(swift, getConfiguredContainer(), null, METADATA_FILENAME);
     if (metadata.exists()) {
       metadata.load();
       String type = metadata.getProperty(TYPE_KEY);
@@ -412,7 +412,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
     try {
       boolean contentEmpty = swift.getContainer(getConfiguredContainer()).listDirectory(CONTENT_DIRECTORY).isEmpty();
       if (contentEmpty) {
-        SwiftPropertiesFile metadata = new SwiftPropertiesFile(swift, getConfiguredContainer(), METADATA_FILENAME);
+        SwiftPropertiesFile metadata = new SwiftPropertiesFile(swift, getConfiguredContainer(), null, METADATA_FILENAME);
         metadata.remove();
         storeMetrics.remove();
         swift.getContainer(getConfiguredContainer()).delete();
