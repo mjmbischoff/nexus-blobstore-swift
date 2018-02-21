@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+import com.google.common.base.Stopwatch;
 import org.javaswift.joss.model.Account;
 import org.javaswift.joss.model.Directory;
 import org.javaswift.joss.model.StoredObject;
@@ -31,6 +32,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public class SwiftPropertiesFile extends Properties {
   private static final Logger log = LoggerFactory.getLogger(SwiftPropertiesFile.class);
+  private static final Logger timerlog = LoggerFactory.getLogger(SwiftPropertiesFile.class.getName()+"-timer");
   private final Account swift;
   private final String container;
   private final String key;
@@ -47,16 +49,20 @@ public class SwiftPropertiesFile extends Properties {
 
   public void load() throws IOException {
     log.debug("Loading: {}/{}", container, key);
-
-    StoredObject object = swift.getContainer(container).getObject(key);
-    try (InputStream inputStream = object.downloadObjectAsInputStream()) {
-      load(inputStream);
+    Stopwatch stopwatch = Stopwatch.createStarted();
+    try {
+      StoredObject object = swift.getContainer(container).getObject(key);
+      try (InputStream inputStream = object.downloadObjectAsInputStream()) {
+        load(inputStream);
+      }
+    } finally {
+      timerlog.trace("load() took: " + stopwatch);
     }
   }
 
   public void store() throws IOException {
     log.debug("Storing: {}/{}", container, key);
-
+    Stopwatch stopwatch = Stopwatch.createStarted();
     try(ByteArrayOutputStream bufferStream = new ByteArrayOutputStream()) {
       store(bufferStream, null);
       byte[] buffer = bufferStream.toByteArray();
@@ -64,6 +70,8 @@ public class SwiftPropertiesFile extends Properties {
       StoredObject object = swift.getContainer(container).getObject(key);
       object.setContentLength(buffer.length);
       object.uploadObject(buffer);
+    } finally {
+      timerlog.trace("store() took: " + stopwatch);
     }
   }
 

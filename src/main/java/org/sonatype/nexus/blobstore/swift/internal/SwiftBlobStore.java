@@ -12,6 +12,7 @@
  */
 package org.sonatype.nexus.blobstore.swift.internal;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.hash.HashCode;
@@ -20,6 +21,8 @@ import org.javaswift.joss.model.Directory;
 import org.javaswift.joss.model.DirectoryOrObject;
 import org.javaswift.joss.model.StoredObject;
 import org.joda.time.DateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.BlobSupport;
 import org.sonatype.nexus.blobstore.MetricsInputStream;
@@ -45,6 +48,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
 
@@ -64,6 +68,8 @@ import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.St
  */
 @Named(SwiftBlobStore.TYPE)
 public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobStore {
+  private final Logger timerlog = LoggerFactory.getLogger(SwiftBlobStore.class.getName()+"-timer");
+
   public static final String TYPE = "SWIFT";
   public static final String BLOB_CONTENT_SUFFIX = ".bytes";
   public static final String BLOB_ATTRIBUTE_SUFFIX = ".properties";
@@ -94,6 +100,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   private Account swift;
 
 
+
   @Inject
   public SwiftBlobStore(final SwiftClientFactory swiftClientFactory,
                         final BlobIdLocationResolver blobIdLocationResolver,
@@ -106,27 +113,37 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
 
   @Override
   protected void doStart() throws Exception {
-    // ensure blobstore is supported
-    SwiftPropertiesFile metadata = new SwiftPropertiesFile(swift, getConfiguredContainer(), null, METADATA_FILENAME);
-    if (metadata.exists()) {
-      metadata.load();
-      String type = metadata.getProperty(TYPE_KEY);
-      checkState(TYPE_V1.equals(type), "Unsupported blob store type/version: %s in %s", type, metadata);
-    } else {
-      // assumes new blobstore, write out type
-      metadata.setProperty(TYPE_KEY, TYPE_V1);
-      metadata.store();
+    Stopwatch stopwatch = Stopwatch.createStarted();
+    try {
+      // ensure blobstore is supported
+      SwiftPropertiesFile metadata = new SwiftPropertiesFile(swift, getConfiguredContainer(), null, METADATA_FILENAME);
+      if (metadata.exists()) {
+        metadata.load();
+        String type = metadata.getProperty(TYPE_KEY);
+        checkState(TYPE_V1.equals(type), "Unsupported blob store type/version: %s in %s", type, metadata);
+      } else {
+        // assumes new blobstore, write out type
+        metadata.setProperty(TYPE_KEY, TYPE_V1);
+        metadata.store();
+      }
+      liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(SwiftBlob::new));
+      storeMetrics.setContainer(getConfiguredContainer());
+      storeMetrics.setSwift(swift);
+      storeMetrics.start();
+    } finally {
+      timerlog.debug("doStart() took: " + stopwatch);
     }
-    liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(SwiftBlob::new));
-    storeMetrics.setContainer(getConfiguredContainer());
-    storeMetrics.setSwift(swift);
-    storeMetrics.start();
   }
 
   @Override
   protected void doStop() throws Exception {
-    liveBlobs = null;
-    storeMetrics.stop();
+    Stopwatch stopwatch = Stopwatch.createStarted();
+    try {
+      liveBlobs = null;
+      storeMetrics.stop();
+    } finally {
+      timerlog.debug("doStop() took: " + stopwatch);
+    }
   }
 
   /**
@@ -153,17 +170,22 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   @Override
   @Guarded(by = STARTED)
   public Blob create(final InputStream blobData, final Map<String, String> headers) {
-    checkNotNull(blobData);
+    Stopwatch stopwatch = Stopwatch.createStarted();
+    try {
+      checkNotNull(blobData);
 
-    return create(headers, destination -> {
-      MetricsInputStream input;
-      try (InputStream buffered = new BufferedInputStream(input = new MetricsInputStream(blobData), BUFFER_SIZE)) {
-        swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(buffered);
-        return input.getMetrics();
-      } catch (Exception e) {
-        throw new BlobStoreException("error uploading blob", e, null);
-      }
-    });
+      return create(headers, destination -> {
+        MetricsInputStream input;
+        try (InputStream buffered = new BufferedInputStream(input = new MetricsInputStream(blobData), BUFFER_SIZE)) {
+          swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(buffered);
+          return input.getMetrics();
+        } catch (Exception e) {
+          throw new BlobStoreException("error uploading blob", e, null);
+        }
+      });
+    } finally {
+      timerlog.debug("create(...) took: " + stopwatch);
+    }
   }
 
   @Override
@@ -211,15 +233,20 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   @Override
   @Guarded(by = STARTED)
   public Blob copy(final BlobId blobId, final Map<String, String> headers) {
-    Blob sourceBlob = checkNotNull(get(blobId));
-    String sourcePath = contentPath(sourceBlob.getId());
-    return create(headers, destination -> {
-      try(InputStream source = new BufferedInputStream(swift.getContainer(getConfiguredContainer()).getObject(sourcePath).downloadObjectAsInputStream(), BUFFER_SIZE)) {
-        swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(source);
-        BlobMetrics metrics = sourceBlob.getMetrics();
-        return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
-      }
-    });
+    Stopwatch stopwatch = Stopwatch.createStarted();
+    try {
+      Blob sourceBlob = checkNotNull(get(blobId));
+      String sourcePath = contentPath(sourceBlob.getId());
+      return create(headers, destination -> {
+        try(InputStream source = new BufferedInputStream(swift.getContainer(getConfiguredContainer()).getObject(sourcePath).downloadObjectAsInputStream(), BUFFER_SIZE)) {
+          swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(source);
+          BlobMetrics metrics = sourceBlob.getMetrics();
+          return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
+        }
+      });
+    } finally {
+      timerlog.debug("copy() took: " + stopwatch);
+    }
   }
 
   @Nullable
@@ -232,109 +259,124 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   @Nullable
   @Override
   public Blob get(final BlobId blobId, final boolean includeDeleted) {
-    checkNotNull(blobId);
+    Stopwatch stopwatch = Stopwatch.createStarted();
+    try {
+      checkNotNull(blobId);
 
-    final SwiftBlob blob = liveBlobs.getUnchecked(blobId);
+      final SwiftBlob blob = liveBlobs.getUnchecked(blobId);
 
-    if (blob.isStale()) {
-      Lock lock = blob.lock();
-      try {
-        if (blob.isStale()) {
-          SwiftBlobAttributes blobAttributes = new SwiftBlobAttributes(swift, getConfiguredContainer(), attributePath(blobId).toString());
-          boolean loaded = blobAttributes.load();
-          if (!loaded) {
-            log.warn("Attempt to access non-existent blob {} ({})", blobId, blobAttributes);
-            return null;
+      if (blob.isStale()) {
+        Lock lock = blob.lock();
+        try {
+          if (blob.isStale()) {
+            SwiftBlobAttributes blobAttributes = new SwiftBlobAttributes(swift, getConfiguredContainer(), attributePath(blobId).toString());
+            boolean loaded = blobAttributes.load();
+            if (!loaded) {
+              log.warn("Attempt to access non-existent blob {} ({})", blobId, blobAttributes);
+              return null;
+            }
+
+            if (blobAttributes.isDeleted() && !includeDeleted) {
+              log.warn("Attempt to access soft-deleted blob {} ({})", blobId, blobAttributes);
+              return null;
+            }
+
+            blob.refresh(blobAttributes.getHeaders(), blobAttributes.getMetrics());
           }
-
-          if (blobAttributes.isDeleted() && !includeDeleted) {
-            log.warn("Attempt to access soft-deleted blob {} ({})", blobId, blobAttributes);
-            return null;
-          }
-
-          blob.refresh(blobAttributes.getHeaders(), blobAttributes.getMetrics());
+        }
+        catch (IOException e) {
+          throw new BlobStoreException(e, blobId);
+        }
+        finally {
+          lock.unlock();
         }
       }
-      catch (IOException e) {
-        throw new BlobStoreException(e, blobId);
-      }
-      finally {
-        lock.unlock();
-      }
+
+      log.debug("Accessing blob {}", blobId);
+
+      return blob;
+    } finally {
+      timerlog.trace("get(...) took: " + stopwatch);
     }
-
-    log.debug("Accessing blob {}", blobId);
-
-    return blob;
   }
 
   @Override
   @Guarded(by = STARTED)
   public boolean delete(final BlobId blobId, String reason) {
-    checkNotNull(blobId);
-
-    final SwiftBlob blob = liveBlobs.getUnchecked(blobId);
-
-    Lock lock = blob.lock();
+    Stopwatch stopwatch = Stopwatch.createStarted();
     try {
-      log.debug("Soft deleting blob {}", blobId);
+      checkNotNull(blobId);
 
-      SwiftBlobAttributes blobAttributes = new SwiftBlobAttributes(swift, getConfiguredContainer(), attributePath(blobId).toString());
+      final SwiftBlob blob = liveBlobs.getUnchecked(blobId);
 
-      boolean loaded = blobAttributes.load();
-      if (!loaded) {
-        // This could happen under some concurrent situations (two threads try to delete the same blob)
-        // but it can also occur if the deleted index refers to a manually-deleted blob.
-        log.warn("Attempt to mark-for-delete non-existent blob {}", blobId);
-        return false;
+      Lock lock = blob.lock();
+      try {
+        log.debug("Soft deleting blob {}", blobId);
+
+        SwiftBlobAttributes blobAttributes = new SwiftBlobAttributes(swift, getConfiguredContainer(), attributePath(blobId).toString());
+
+        boolean loaded = blobAttributes.load();
+        if (!loaded) {
+          // This could happen under some concurrent situations (two threads try to delete the same blob)
+          // but it can also occur if the deleted index refers to a manually-deleted blob.
+          log.warn("Attempt to mark-for-delete non-existent blob {}", blobId);
+          return false;
+        }
+        else if (blobAttributes.isDeleted()) {
+          log.debug("Attempt to delete already-deleted blob {}", blobId);
+          return false;
+        }
+
+        blobAttributes.setDeleted(true);
+        blobAttributes.setDeletedReason(reason);
+        blobAttributes.store();
+        delete(contentPath(blobId));
+        blob.markStale();
+
+        return true;
+      } catch (Exception e) {
+        throw new BlobStoreException(e, blobId);
+      } finally {
+        lock.unlock();
       }
-      else if (blobAttributes.isDeleted()) {
-        log.debug("Attempt to delete already-deleted blob {}", blobId);
-        return false;
-      }
-
-      blobAttributes.setDeleted(true);
-      blobAttributes.setDeletedReason(reason);
-      blobAttributes.store();
-      delete(contentPath(blobId));
-      blob.markStale();
-
-      return true;
-    } catch (Exception e) {
-      throw new BlobStoreException(e, blobId);
     } finally {
-      lock.unlock();
+      timerlog.debug("delete(...) took: " + stopwatch);
     }
   }
 
   @Override
   @Guarded(by = STARTED)
   public boolean deleteHard(final BlobId blobId) {
-    checkNotNull(blobId);
-
+    Stopwatch stopwatch = Stopwatch.createStarted();
     try {
-      log.debug("Hard deleting blob {}", blobId);
+      checkNotNull(blobId);
 
-      String attributePath = attributePath(blobId);
-      SwiftBlobAttributes blobAttributes = new SwiftBlobAttributes(swift, getConfiguredContainer(), attributePath);
-      Long contentSize = getContentSizeForDeletion(blobAttributes);
+      try {
+        log.debug("Hard deleting blob {}", blobId);
 
-      String blobPath = contentPath(blobId);
+        String attributePath = attributePath(blobId);
+        SwiftBlobAttributes blobAttributes = new SwiftBlobAttributes(swift, getConfiguredContainer(), attributePath);
+        Long contentSize = getContentSizeForDeletion(blobAttributes);
 
-      boolean blobDeleted = delete(blobPath);
-      delete(attributePath);
+        String blobPath = contentPath(blobId);
 
-      if (blobDeleted && contentSize != null) {
-        storeMetrics.recordDeletion(contentSize);
+        boolean blobDeleted = delete(blobPath);
+        delete(attributePath);
+
+        if (blobDeleted && contentSize != null) {
+          storeMetrics.recordDeletion(contentSize);
+        }
+
+        return blobDeleted;
       }
-
-      return blobDeleted;
-    }
-    catch (IOException e) {
-      throw new BlobStoreException(e, blobId);
-    }
-    finally {
-      liveBlobs.invalidate(blobId);
+      catch (IOException e) {
+        throw new BlobStoreException(e, blobId);
+      }
+      finally {
+        liveBlobs.invalidate(blobId);
+      }
+    } finally {
+      timerlog.debug("deleteHard(...) took: " + stopwatch);
     }
   }
 
@@ -412,19 +454,24 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   @Override
   @Guarded(by = {NEW, STOPPED, FAILED})
   public void remove() {
+    Stopwatch stopwatch = Stopwatch.createStarted();
     try {
-      boolean contentEmpty = swift.getContainer(getConfiguredContainer()).listDirectory(CONTENT_DIRECTORY).isEmpty();
-      if (contentEmpty) {
-        SwiftPropertiesFile metadata = new SwiftPropertiesFile(swift, getConfiguredContainer(), null, METADATA_FILENAME);
-        metadata.remove();
-        storeMetrics.remove();
-        swift.getContainer(getConfiguredContainer()).delete();
+      try {
+        boolean contentEmpty = swift.getContainer(getConfiguredContainer()).listDirectory(CONTENT_DIRECTORY).isEmpty();
+        if (contentEmpty) {
+          SwiftPropertiesFile metadata = new SwiftPropertiesFile(swift, getConfiguredContainer(), null, METADATA_FILENAME);
+          metadata.remove();
+          storeMetrics.remove();
+          swift.getContainer(getConfiguredContainer()).delete();
+        }
+        else {
+          log.warn("Unable to delete non-empty blob store content directory in bucket {}", getConfiguredContainer());
+        }
+      } catch (IOException e) {
+          throw new BlobStoreException(e, null);
       }
-      else {
-        log.warn("Unable to delete non-empty blob store content directory in bucket {}", getConfiguredContainer());
-      }
-    } catch (IOException e) {
-        throw new BlobStoreException(e, null);
+    } finally {
+      timerlog.debug("remove(...) took: " + stopwatch);
     }
   }
 
