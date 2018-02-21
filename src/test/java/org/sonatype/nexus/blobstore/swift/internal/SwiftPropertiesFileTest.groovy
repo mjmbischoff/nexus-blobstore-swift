@@ -59,8 +59,9 @@ public class SwiftPropertiesFileTest
 
     then:
       1 * swift.getContainer('myContainer').getObject('mykey') >> swiftObject
-      1 * swiftObject.uploadObject(_) >> { InputStream inputstream ->
-        def text = inputstream.text
+      1 * swiftObject.setContentLength(52)
+      1 * swiftObject.uploadObject(_) >> { inputs ->
+        def text = new String(inputs.get(0), "UTF-8")
         assert text.contains('testProperty=newValue' + System.lineSeparator())
       }
   }
