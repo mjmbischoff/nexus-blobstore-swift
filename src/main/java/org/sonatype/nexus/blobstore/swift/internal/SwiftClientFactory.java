@@ -25,6 +25,7 @@ import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.AUTHURL
 import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.AUTH_METHOD;
 import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.CONFIG_KEY;
 import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.PASSWORD_KEY;
+import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.SOCKET_TIMEOUT_KEY;
 import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.TENANT_ID_KEY;
 import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.TENANT_NAME_KEY;
 import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.USERNAME_KEY;
@@ -35,12 +36,16 @@ import static org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore.USERNAM
 @Named
 public class SwiftClientFactory {
 
+  private static final int DEFAULT_SOCKET_TIMEOUT = 5000;
+
   public Account create(final BlobStoreConfiguration blobStoreConfiguration) {
     NestedAttributesMap config = blobStoreConfiguration.attributes(CONFIG_KEY);
+    String socketTimeout = config.get(SOCKET_TIMEOUT_KEY, String.class);
     String username = config.get(USERNAME_KEY, String.class);
     String password = config.get(PASSWORD_KEY, String.class);
     String authUrl = config.get(AUTHURL_KEY, String.class);
     AccountFactory factory = new AccountFactory()
+            .setSocketTimeout(parseSocketTimeout(socketTimeout))
             .setUsername(username)
             .setPassword(password)
             .setAuthUrl(authUrl);
@@ -59,6 +64,14 @@ public class SwiftClientFactory {
     }
 
     return factory.createAccount();
+  }
+
+  private int parseSocketTimeout(String socketTimeout) {
+    try {
+      return Integer.parseInt(socketTimeout);
+    } catch (NumberFormatException e) {
+      return DEFAULT_SOCKET_TIMEOUT;
+    }
   }
 
   private AuthenticationMethod toAuthMethod(String value) {

@@ -48,7 +48,6 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
 
@@ -76,6 +75,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   public static final String CONFIG_KEY = "swift";
 
   public static final String CONTAINER_KEY = "container";
+  public static final String SOCKET_TIMEOUT_KEY = "socketTimeout";
   public static final String USERNAME_KEY = "username";
   public static final String PASSWORD_KEY = "password";
   public static final String AUTHURL_KEY = "authUrl";
@@ -269,7 +269,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
         Lock lock = blob.lock();
         try {
           if (blob.isStale()) {
-            SwiftBlobAttributes blobAttributes = new SwiftBlobAttributes(swift, getConfiguredContainer(), attributePath(blobId).toString());
+            SwiftBlobAttributes blobAttributes = new SwiftBlobAttributes(swift, getConfiguredContainer(), attributePath(blobId));
             boolean loaded = blobAttributes.load();
             if (!loaded) {
               log.warn("Attempt to access non-existent blob {} ({})", blobId, blobAttributes);
