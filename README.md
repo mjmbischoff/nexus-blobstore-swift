@@ -72,6 +72,11 @@ will be used.
 Troubleshooting
 ---------------
 
+Timing logging can be enabled by setting the following loggers to DEBUG or TRACE:
+org.sonatype.nexus.blobstore.swift.internal.SwiftBlobStore-timer
+org.sonatype.nexus.blobstore.swift.internal.SwiftPropertiesFile-timer
+
+
 How can I remove or fix a misbehaving Swift blobstore?  You may need to
 adjust the OrientDB configuration manually to fix it.  Check out this article:
 https://support.sonatype.com/hc/en-us/articles/235816228-Relocating-Blob-Stores
