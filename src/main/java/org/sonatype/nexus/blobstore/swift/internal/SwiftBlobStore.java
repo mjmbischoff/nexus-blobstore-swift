@@ -241,7 +241,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
     try {
       Blob sourceBlob = checkNotNull(get(blobId));
       String sourcePath = contentPath(sourceBlob.getId());
-      return create(headers, destination -> autoRetry(() -> {
+      return create(headers, destination -> this.<StreamMetrics, IOException>autoRetry(() -> {
         try (InputStream source = new BufferedInputStream(swift.getContainer(getConfiguredContainer()).getObject(sourcePath).downloadObjectAsInputStream(), BUFFER_SIZE)) {
           swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(source);
           BlobMetrics metrics = sourceBlob.getMetrics();
@@ -317,7 +317,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
         log.debug("Soft deleting blob {}", blobId);
 
         SwiftBlobAttributes blobAttributes = new SwiftBlobAttributes(swift, getConfiguredContainer(), attributePath(blobId).toString());
-        boolean loaded = autoRetry(blobAttributes::load);
+        boolean loaded = autoRetry(() -> blobAttributes.load());
         if (!loaded) {
           // This could happen under some concurrent situations (two threads try to delete the same blob)
           // but it can also occur if the deleted index refers to a manually-deleted blob.
@@ -397,7 +397,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   @Override
   @Guarded(by = STARTED)
   public BlobStoreMetrics getMetrics() {
-    return autoRetry(storeMetrics::getMetrics);
+    return autoRetry(() -> storeMetrics.getMetrics());
   }
 
   @Override
@@ -524,7 +524,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   public BlobAttributes getBlobAttributes(final BlobId blobId) {
     try {
       SwiftBlobAttributes blobAttributes = new SwiftBlobAttributes(swift, getConfiguredContainer(), attributePath(blobId));
-      return autoRetry(blobAttributes::load) ? blobAttributes : null;
+      return autoRetry(() -> blobAttributes.load()) ? blobAttributes : null;
     } catch (IOException e) {
       log.error("Unable to load S3BlobAttributes for blob id: {}", blobId, e);
       return null;
@@ -544,10 +544,12 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
     }
   }
 
+  @FunctionalInterface
   protected interface Runnable<T extends Exception> {
     void run() throws T;
   }
 
+  @FunctionalInterface
   protected interface Callable<Type, T extends Exception> {
     Type call() throws T;
   }
