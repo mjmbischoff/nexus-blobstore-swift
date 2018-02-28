@@ -87,6 +87,12 @@ public class SwiftBlobStoreDescriptor implements BlobStoreDescriptor {
 
     @DefaultMessage("Socket Timeout for calls to swift")
     String socketTimeoutHelp();
+
+    @DefaultMessage("Operation attempts")
+    String triesLabel();
+
+    @DefaultMessage("Times to try any operation against swift >=1")
+    String triesHelp();
   }
 
   private static final Messages messages = I18N.create(Messages.class);
@@ -99,6 +105,7 @@ public class SwiftBlobStoreDescriptor implements BlobStoreDescriptor {
   private final FormField tenantId;
   private final FormField tenantName;
   private final FormField socketTimeout;
+  private final FormField tries;
 
   public SwiftBlobStoreDescriptor() {
     this.container = new StringTextFormField(
@@ -149,6 +156,12 @@ public class SwiftBlobStoreDescriptor implements BlobStoreDescriptor {
         messages.socketTimeoutHelp(),
         FormField.MANDATORY
     ).withInitialValue("5000");
+    this.tries = new StringTextFormField(
+        SwiftBlobStore.TRIES_KEY,
+        messages.triesLabel(),
+        messages.triesHelp(),
+        FormField.MANDATORY
+    ).withInitialValue("2");
   }
 
   @Override
@@ -158,6 +171,6 @@ public class SwiftBlobStoreDescriptor implements BlobStoreDescriptor {
 
   @Override
   public List<FormField> getFormFields() {
-      return Arrays.asList(container, username, password, authUrl, authMethod, tenantId, tenantName, socketTimeout);
+      return Arrays.asList(container, username, password, authUrl, authMethod, tenantId, tenantName, socketTimeout, tries);
   }
 }
