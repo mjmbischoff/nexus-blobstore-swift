@@ -559,6 +559,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
     for(int i = 0; i < tries-1; i++) {
       try {
         action.run();
+        return;
       } catch (Throwable e) {
         log.debug("Operation failed (try: "+i+")", e);
       }
