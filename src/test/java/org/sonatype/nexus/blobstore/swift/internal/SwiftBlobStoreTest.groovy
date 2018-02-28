@@ -55,7 +55,7 @@ class SwiftBlobStoreTest
   def setup() {
     locationResolver.getLocation(_) >> { args -> args[0].toString() }
     swiftClientFactory.create(_) >> swift
-    config.attributes = [swift: [container: 'myContainer']]
+    config.attributes = [swift: [container: 'myContainer', tries: '1']]
   }
 
   def "Get blob"() {

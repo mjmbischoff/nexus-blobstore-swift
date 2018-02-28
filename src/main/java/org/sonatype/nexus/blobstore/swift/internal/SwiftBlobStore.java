@@ -420,7 +420,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   @Override
   public void init(final BlobStoreConfiguration configuration) {
     this.blobStoreConfiguration = configuration;
-    tries.set((Integer) blobStoreConfiguration.attributes(CONFIG_KEY).get(TRIES_KEY));
+    tries.set(Integer.valueOf(String.valueOf(blobStoreConfiguration.attributes(CONFIG_KEY).get(TRIES_KEY))));
     try {
       this.swift = swiftClientFactory.create(configuration);
       autoRetry(() -> {
