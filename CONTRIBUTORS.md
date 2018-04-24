@@ -21,3 +21,5 @@ Michael Bischoff
 &
 
 ![Possibly You!](http://i.imgur.com/A3eScYul.jpg)
+
+And inspiration was drawn from https://github.com/sonatype/nexus-blobstore-s3
