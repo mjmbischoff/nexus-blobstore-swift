@@ -16,6 +16,8 @@ import com.google.common.base.Stopwatch;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.hash.HashCode;
+import com.google.common.io.ByteStreams;
+import org.apache.commons.io.IOUtils;
 import org.javaswift.joss.model.Account;
 import org.javaswift.joss.model.Directory;
 import org.javaswift.joss.model.DirectoryOrObject;
@@ -91,7 +93,7 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
   public static final String TEMPORARY_BLOB_ID_PREFIX = "tmp$";
 
   private static final Directory CONTENT_DIRECTORY = new Directory(CONTENT_PREFIX, '/');
-  private static final int BUFFER_SIZE = 1024 * 250;
+  private static final int BUFFER_SIZE = 1024 * 1024 * 25;
 
   private final SwiftClientFactory swiftClientFactory;
   private final BlobIdLocationResolver blobIdLocationResolver;

@@ -1,4 +1,4 @@
-FROM sonatype/nexus3:3.8.0
+FROM sonatype/nexus3:3.12.1
 
 ENV SWIFT_BLOBSTORE_VERSION 1.0.0-SNAPSHOT
 ENV NEXUS_HOME /opt/sonatype/nexus
@@ -13,3 +13,5 @@ RUN sed -i.bak \
   ${NEXUS_HOME}/system/org/sonatype/nexus/assemblies/nexus-core-feature/*/nexus-core-feature-*-features.xml
 
 USER nexus
+
+EXPOSE 8081
