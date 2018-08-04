@@ -16,8 +16,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.hash.HashCode;
-import com.google.common.io.ByteStreams;
-import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.FileUtils;
 import org.javaswift.joss.model.Account;
 import org.javaswift.joss.model.Directory;
 import org.javaswift.joss.model.DirectoryOrObject;
@@ -44,9 +43,8 @@ import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Map;
@@ -172,18 +170,18 @@ public class SwiftBlobStore extends StateGuardLifecycleSupport implements BlobSt
 
   @Override
   @Guarded(by = STARTED)
-  public Blob create(final InputStream blobData, final Map<String, String> headers) {
+  public  Blob create(final InputStream blobData, final Map<String, String> headers) {
     Stopwatch stopwatch = Stopwatch.createStarted();
     try {
       checkNotNull(blobData);
 
       return create(headers, destination -> {
-        MetricsInputStream input;
-        try (InputStream buffered = new BufferedInputStream(input = new MetricsInputStream(blobData), BUFFER_SIZE)) {
-          buffered.mark(BUFFER_SIZE);
+        File tempFile = File.createTempFile("nexus", "inflight");
+        tempFile.deleteOnExit();
+        try (MetricsInputStream input = new MetricsInputStream(blobData); Closeable ignored = () -> tempFile.delete()) {
+          FileUtils.copyInputStreamToFile(input, tempFile);
           autoRetry(() -> {
-            buffered.reset();
-            swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(buffered);
+            swift.getContainer(getConfiguredContainer()).getObject(destination).uploadObject(tempFile);
           });
           return input.getMetrics();
         } catch (Exception e) {
