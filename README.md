@@ -101,12 +101,3 @@ Remember:
 Last but not least of all:
 
 Have fun creating and using this plugin and the Nexus platform, we are glad to have you here!
-
-Getting help
-------------
-
-Looking to contribute to our code but need some help? There's a few ways to get information:
-
-* Chat with us on [Gitter](https://gitter.im/sonatype/nexus-developers)
-* Check out the [Nexus3](http://stackoverflow.com/questions/tagged/nexus3) tag on Stack Overflow
-* Check out the [Nexus Repository User List](https://groups.google.com/a/glists.sonatype.com/forum/?hl=en#!forum/nexus-users)
